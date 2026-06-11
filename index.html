@@ -343,7 +343,7 @@
 
     <div class="card">
       <h2>💬 ご意見・ご要望</h2>
-      <p class="note" style="margin:0 0 10px">気づいたこと・ほしい機能・不具合など、何でも開発者に送れます。送信すると内容が入った状態で投稿ページが開きます。</p>
+      <p class="note" style="margin:0 0 10px">気づいたこと・ほしい機能・不具合など、何でも送れます。ボタンを押すとアンケートフォームが開きます(1〜2分・匿名でOK)。</p>
       <button id="fbBtn" class="primary">✏️ フィードバックを書く</button>
     </div>
   </section>
@@ -375,19 +375,6 @@
 
   <footer>データは端末内でのみ処理・保存されます<br>© 2026 ランログ — 無断複製・再配布を禁じます<br><a id="fbLink" href="#">💬 ご意見・ご要望を送る</a></footer>
 
-  <!-- ============ フィードバック・モーダル ============ -->
-  <div id="fbModal" class="modal" style="display:none">
-    <div class="modal-box">
-      <h2>💬 ご意見・ご要望</h2>
-      <p class="note" style="margin:0 0 6px">送信を押すと、内容が入った状態でGitHubの投稿ページが開きます(投稿にはGitHubアカウントが必要です)。</p>
-      <textarea id="fbText" rows="5" placeholder="例:◯◯の画面で△△したい / ××が表示されない など"></textarea>
-      <input id="fbContact" type="text" placeholder="返信用の連絡先(任意・SNSやメールなど)">
-      <div class="modal-actions">
-        <button id="fbCancel" class="ghost">キャンセル</button>
-        <button id="fbSend" class="primary">送信(GitHubで投稿)</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- ============ タブバー ============ -->
@@ -1356,30 +1343,12 @@ $('demo').addEventListener('click', () => {
 });
 
 /* ================================================================
-   フィードバック(アプリ内フォーム → GitHubの投稿ページを内容入りで開く)
+   フィードバック(Googleフォームを開く)
 ================================================================ */
-function openFb(){ $('fbModal').style.display = 'flex'; setTimeout(() => $('fbText').focus(), 50); }
-function closeFb(){ $('fbModal').style.display = 'none'; }
+const FB_URL = 'https://forms.gle/je85NQUBpyjcNrTFA';
+function openFb(){ window.open(FB_URL, '_blank'); }
 $('fbBtn').addEventListener('click', openFb);
 $('fbLink').addEventListener('click', e => { e.preventDefault(); openFb(); });
-$('fbCancel').addEventListener('click', closeFb);
-$('fbModal').addEventListener('click', e => { if(e.target === $('fbModal')) closeFb(); });
-function sendFb(){
-  const text = $('fbText').value.trim();
-  if(!text){ $('fbText').focus(); return; }
-  const contact = $('fbContact').value.trim();
-  let body = text;
-  if(contact) body += '\n\n---\n返信用の連絡先: ' + contact;
-  body += '\n\n(ランログ アプリ内フォームより送信)';
-  const url = 'https://github.com/nanakaohhashi/runlog/issues/new?title=' +
-    encodeURIComponent('フィードバック') + '&body=' + encodeURIComponent(body);
-  window.open(url, '_blank');
-  closeFb();
-  $('fbText').value = ''; $('fbContact').value = '';
-}
-$('fbSend').addEventListener('click', sendFb);
-// Ctrl/Cmd + Enter でも送信
-$('fbText').addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter') sendFb(); });
 
 /* ================================================================
    起動
