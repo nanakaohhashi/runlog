@@ -216,6 +216,9 @@
   <!-- ============ カレンダー ============ -->
   <section class="view" id="view-calendar">
     <div class="hero" id="monthHero"></div>
+    <div style="text-align:center;margin:-2px 0 14px">
+      <button id="shareBtn" class="primary" style="display:none">📤 今月の記録をシェア</button>
+    </div>
     <div class="card">
       <div class="calhead">
         <button id="calPrev">◀</button>
@@ -888,6 +891,62 @@ function renderMonthHero(runs){
       `<div class="hchip"><div class="v">${monthRuns.length ? fmtDur(mMin) : '—'}</div><div class="l">合計時間</div></div>` +
       `<div class="hchip"><div class="v">${fmtPace(mPace)}</div><div class="l">平均ペース/km</div></div>` +
     `</div>`;
+  const sb = $('shareBtn');
+  if(sb) sb.style.display = monthRuns.length ? 'inline-block' : 'none';
+}
+
+// 表示中の月の記録を「シェア用画像」(1080×1080)に描く。記録なしなら null
+function buildShareCanvas(){
+  const runs = allRuns().filter(r => {
+    const d = new Date(r.s);
+    return isRunType(r.type) && d.getFullYear() === calY && d.getMonth() === calM;
+  });
+  if(!runs.length) return null;
+  const km = runs.reduce((a,r)=>a+r.km, 0);
+  const min = runs.reduce((a,r)=>a+runDurMin(r), 0);
+  const pace = km > 0.5 ? min/km : null;
+  const emoji = km >= 50 ? '🎉' : km >= 20 ? '🔥' : '👟';
+  const S = 1080, FF = "-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI',Meiryo,sans-serif";
+  const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, S);
+  grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#e4f6ef');
+  g.fillStyle = grad; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#ff7a70'; g.fillRect(0, 0, S, 18);
+  const cx = S/2; g.textAlign = 'center';
+  g.fillStyle = '#1fae93'; g.font = `bold 66px ${FF}`; g.fillText('🏃 ランログ', cx, 150);
+  g.fillStyle = '#8aa39b'; g.font = `44px ${FF}`; g.fillText(`${calY}年${calM+1}月の記録`, cx, 235);
+  g.fillStyle = '#ef5d50'; g.font = `bold 250px ${FF}`; g.fillText(km.toFixed(1), cx, 525);
+  g.font = `bold 80px ${FF}`; g.fillText(`km ${emoji}`, cx, 625);
+  const cols = [['ラン回数', runs.length + '回'], ['合計時間', fmtDur(min)], ['平均ペース', fmtPace(pace)]];
+  const xs = [S*0.2, S*0.5, S*0.8];
+  cols.forEach((c, i) => {
+    g.fillStyle = '#1fae93'; g.font = `bold 58px ${FF}`; g.fillText(c[1], xs[i], 800);
+    g.fillStyle = '#8aa39b'; g.font = `36px ${FF}`; g.fillText(c[0], xs[i], 858);
+  });
+  g.fillStyle = '#8aa39b'; g.font = `34px ${FF}`; g.fillText('Apple Watch の心拍 × ペースを記録', cx, 980);
+  g.fillStyle = '#1fae93'; g.font = `bold 40px ${FF}`; g.fillText('nanakaohhashi.github.io/runlog', cx, 1035);
+  return { cv, km };
+}
+
+// 今月の記録カードを共有(対応端末は共有シート、非対応は画像ダウンロード)
+function shareMonth(){
+  const r = buildShareCanvas();
+  if(!r) return;
+  const { cv, km } = r;
+  const fname = `runlog-${calY}-${String(calM+1).padStart(2,'0')}.png`;
+  const text = `今月は ${km.toFixed(1)}km 走りました🏃 #ランログ\nhttps://nanakaohhashi.github.io/runlog/`;
+  cv.toBlob(blob => {
+    if(!blob) return;
+    const file = new File([blob], fname, {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], text, title:'ランログ'}).catch(()=>{});
+    }else{
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+  }, 'image/png');
 }
 
 // 月ごとの距離を棒グラフで表示(直近12ヶ月)。バーをタップでその月へ移動
@@ -1349,6 +1408,7 @@ const FB_URL = 'https://forms.gle/je85NQUBpyjcNrTFA';
 function openFb(){ window.open(FB_URL, '_blank'); }
 $('fbBtn').addEventListener('click', openFb);
 $('fbLink').addEventListener('click', e => { e.preventDefault(); openFb(); });
+$('shareBtn').addEventListener('click', shareMonth);
 
 /* ================================================================
    起動
