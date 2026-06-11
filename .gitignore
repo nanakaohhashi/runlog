@@ -1,0 +1,5 @@
+# 実データの誤コミットを防ぐ
+*.json
+export.xml
+apple_health_export/
+runlog-backup-*.json

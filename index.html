@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>ランログ — 心拍数 × ペース</title>
+<meta name="theme-color" content="#edf8f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ランログ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#edf8f3;            /* 淡ミントの背景 */
+    --card:#ffffff;          /* 白カード */
+    --border:#d9ece4;        /* やわらかいミントグレーの枠 */
+    --ink:#3a3a3a;           /* 文字 */
+    --navy:#1fae93;          /* ブランド色=ミント(見出し・タブ等) */
+    --mint:#1fae93;
+    --mint-bg:#e4f6ef;       /* 淡ミントの面 */
+    --coral:#ff7a70;         /* 差し色=コーラル */
+    --coral-deep:#ef5d50;    /* 濃いコーラル(文字) */
+    --coral-bg:#ffeae6;      /* 淡コーラルの面 */
+    --hr:#ff6b6b;            /* 心拍数(コーラルレッド) */
+    --pace:#2f9fd0;          /* ペース(ブルー) */
+    --muted:#8aa39b;         /* 補助文字 */
+    --accent-bg:#e4f6ef;     /* =mint-bg(既存利用箇所のため維持) */
+    --red:#ef5d50;           /* =coral-deep(既存利用箇所のため維持) */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    padding:12px 14px calc(86px + env(safe-area-inset-bottom));
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;
+    font-size:15px; line-height:1.7;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  h1{
+    color:var(--mint); font-size:23px; font-weight:800; letter-spacing:.04em;
+    margin:8px 0 0; text-align:center;
+  }
+  .subtitle{text-align:center;color:var(--muted);font-size:11.5px;margin:2px 0 14px;letter-spacing:.06em;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:16px 16px; margin-bottom:14px;
+    box-shadow:0 3px 12px rgba(31,174,147,.08);
+  }
+  .card h2{
+    font-size:15.5px; color:var(--mint); font-weight:800; margin:0 0 10px;
+    border-bottom:2px dotted var(--border); padding-bottom:8px; letter-spacing:.04em;
+  }
+  details{border:1px solid var(--border);border-radius:14px;background:var(--mint-bg);padding:10px 14px;margin-bottom:14px;}
+  details summary{cursor:pointer;font-weight:700;color:var(--mint);font-size:14px;}
+  details ol{margin:10px 0 4px;padding-left:22px;font-size:13.5px;}
+  details li{margin-bottom:6px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  select,button,label.filebtn,input[type=date]{
+    font-size:15px; border-radius:14px; border:1px solid var(--border);
+    padding:10px 15px; background:#fff; color:var(--ink);
+    font-family:inherit;
+  }
+  button,label.filebtn{cursor:pointer;}
+  .primary{background:var(--coral);color:#fff;border-color:var(--coral);font-weight:700;box-shadow:0 3px 10px rgba(255,122,112,.32);}
+  .ghost{background:transparent;border-style:dashed;color:var(--muted);}
+  .danger{color:var(--coral-deep);border-color:#ffc9c3;}
+  input[type=file]{display:none;}
+  #progressArea{display:none;margin-top:14px;}
+  .pbar{height:10px;background:var(--mint-bg);border-radius:999px;overflow:hidden;border:1px solid var(--border);}
+  .pbar>div{height:100%;width:0%;background:var(--coral);transition:width .15s;}
+  #progressText{font-size:12.5px;color:var(--muted);margin-top:6px;}
+  .err{color:var(--hr);font-size:13.5px;margin-top:10px;white-space:pre-wrap;}
+
+  /* ===== ビュー切替 ===== */
+  section.view{display:none;}
+  section.view.active{display:block;}
+
+  /* ===== タブバー ===== */
+  .tabbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;
+    display:flex;justify-content:space-around;gap:6px;
+    background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border-top:1px solid var(--border);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+  .tabbar button{
+    flex:1;max-width:160px;border:none;background:none;border-radius:16px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:20px;padding:6px 0 4px;color:var(--muted);transition:background .15s,color .15s;
+  }
+  .tabbar button span{font-size:10.5px;letter-spacing:.04em;}
+  .tabbar button.active{color:#fff;background:var(--mint);font-weight:700;box-shadow:0 3px 10px rgba(31,174,147,.3);}
+
+  /* ===== カレンダー ===== */
+  .calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .calhead button{padding:6px 16px;font-size:15px;border-radius:999px;background:var(--mint-bg);border-color:transparent;color:var(--mint);font-weight:700;}
+  .calhead .title{font-weight:800;color:var(--mint);font-size:16px;letter-spacing:.04em;}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .calgrid .wd{text-align:center;font-size:11px;color:var(--muted);padding:2px 0;}
+  .calgrid .wd.sun{color:var(--coral-deep);}
+  .calgrid .wd.sat{color:var(--pace);}
+  .day{
+    min-height:52px;border:1.5px solid transparent;border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    padding:4px 0 2px;font-size:13px;position:relative;background:transparent;
+  }
+  .day .num{line-height:1.3;font-variant-numeric:tabular-nums;}
+  .day.out .num{color:#c2d6ce;}
+  .day.today{border-color:var(--mint);}
+  .day.run{background:var(--coral-bg);border-color:#ffd3cd;cursor:pointer;}
+  .day.run .num{color:var(--coral-deep);font-weight:800;}
+  .day.other{cursor:pointer;}
+  .day .dot{width:7px;height:7px;border-radius:50%;margin-top:2px;}
+  .day.run .dot{
+    background:var(--coral);
+    animation:glow 1.8s ease-in-out infinite;
+  }
+  @keyframes glow{
+    0%,100%{box-shadow:0 0 3px 1px rgba(255,122,112,.4);}
+    50%{box-shadow:0 0 10px 3px rgba(255,122,112,.85);}
+  }
+  .day.other .dot{background:#9fc7bb;}
+  .day .km{font-size:9.5px;color:var(--coral-deep);line-height:1.2;font-variant-numeric:tabular-nums;font-weight:700;}
+  .legendline{font-size:12px;color:var(--muted);margin-top:10px;display:flex;gap:16px;}
+  .legendline i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+
+  /* ===== ヒーロー(今月のまとめ) ===== */
+  .hero{
+    background:linear-gradient(135deg,#ffffff 0%,var(--mint-bg) 100%);
+    border:1px solid var(--border); border-radius:22px;
+    padding:18px 16px 16px; margin-bottom:14px; text-align:center;
+    box-shadow:0 4px 16px rgba(31,174,147,.1);
+  }
+  .hero .hmonth{font-size:13px;color:var(--mint);font-weight:800;letter-spacing:.08em;}
+  .hero .hbig{font-size:42px;font-weight:800;color:var(--coral-deep);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px;}
+  .hero .hbig small{font-size:17px;font-weight:700;margin-left:2px;}
+  .hero .hbig .emoji{font-size:24px;margin-left:4px;}
+  .hero .hsub{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .hero .hchips{display:flex;gap:8px;justify-content:center;margin-top:14px;}
+  .hero .hchip{flex:1;max-width:120px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:8px 4px;}
+  .hero .hchip .v{font-size:15px;font-weight:800;color:var(--mint);font-variant-numeric:tabular-nums;}
+  .hero .hchip .l{font-size:10px;color:var(--muted);margin-top:1px;}
+
+  /* 日別パネル */
+  .witem{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    border:1px solid var(--border);border-radius:14px;padding:11px 14px;background:#fff;
+    cursor:pointer;margin-bottom:8px;
+  }
+  .witem:active{background:var(--mint-bg);}
+  .witem .wd{font-weight:700;color:var(--mint);font-size:14px;}
+  .witem .wm{font-size:12.5px;color:var(--muted);}
+  .witem .wtype{font-size:12px;background:var(--coral-bg);border-radius:999px;padding:3px 11px;color:var(--coral-deep);white-space:nowrap;font-weight:700;}
+
+  /* ===== サマリーカード ===== */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin-bottom:14px;}
+  .stat{background:var(--mint-bg);border:1px solid var(--border);border-radius:16px;padding:10px 6px;text-align:center;}
+  .stat .v{font-size:19px;font-weight:800;color:var(--mint);font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:11px;color:var(--muted);letter-spacing:.04em;}
+  .stat .d{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+  /* ===== グラフ ===== */
+  .chartbox{position:relative;}
+  svg{width:100%;height:auto;display:block;touch-action:pan-y;}
+  .legend{display:flex;gap:18px;justify-content:center;font-size:13px;margin:4px 0 8px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;}
+  #tip{
+    position:absolute;display:none;pointer-events:none;
+    background:rgba(28,120,105,.96);color:#fff;font-size:12px;line-height:1.5;
+    border-radius:10px;padding:6px 10px;white-space:nowrap;z-index:5;
+    transform:translate(-50%,-110%);
+  }
+
+  /* ===== 比較 ===== */
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .chips button{padding:7px 14px;font-size:13.5px;border-radius:999px;}
+  .chips button.on{background:var(--mint);color:#fff;border-color:var(--mint);font-weight:700;}
+  .rangerow{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap;}
+  .rangerow input[type=date]{font-size:13.5px;padding:7px 8px;}
+  .charttitle{font-size:13.5px;font-weight:700;color:var(--mint);margin:2px 0 4px;}
+
+  /* ===== 表 ===== */
+  .tablewrap{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:14px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;}
+  th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--border);}
+  th{position:sticky;top:0;background:var(--mint-bg);color:var(--mint);font-size:12px;z-index:1;}
+  td:first-child,th:first-child{text-align:left;}
+  tr:last-child td{border-bottom:none;}
+  tr.click{cursor:pointer;}
+  tr.click:active td{background:var(--accent-bg);}
+  .dim{color:var(--muted);}
+  .backbtn{margin-bottom:12px;}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;margin-top:20px;letter-spacing:.05em;}
+  .empty{color:var(--muted);font-size:13.5px;padding:14px 4px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏃 ランログ</h1>
+  <p class="subtitle">― 心拍数 × ペースのランニング記録 ―</p>
+
+  <!-- ============ カレンダー ============ -->
+  <section class="view" id="view-calendar">
+    <div class="hero" id="monthHero"></div>
+    <div class="card">
+      <div class="calhead">
+        <button id="calPrev">◀</button>
+        <div class="title" id="calTitle"></div>
+        <button id="calNext">▶</button>
+      </div>
+      <div class="calgrid" id="calGrid"></div>
+      <div class="legendline">
+        <span><i style="background:var(--coral);box-shadow:0 0 6px 2px rgba(255,122,112,.6)"></i>ランニング</span>
+        <span><i style="background:#9fc7bb"></i>その他の運動</span>
+      </div>
+    </div>
+    <div class="card" id="monthlyCard" style="display:none">
+      <h2>📊 月ごとの距離</h2>
+      <svg id="chMonthly" viewBox="0 0 800 230" xmlns="http://www.w3.org/2000/svg"></svg>
+      <p class="note">バーをタップすると、その月のカレンダーに移動します。</p>
+    </div>
+    <div class="card" id="dayCard" style="display:none">
+      <h2 id="dayTitle"></h2>
+      <div id="dayList"></div>
+    </div>
+    <div class="empty" id="calEmpty" style="display:none">
+      まだ記録がありません。<br>「取り込み」タブからヘルスケアのデータを読み込んでください。
+    </div>
+  </section>
+
+  <!-- ============ 比較 ============ -->
+  <section class="view" id="view-compare">
+    <div class="card">
+      <h2>期間を選ぶ</h2>
+      <div class="chips" id="cmpChips">
+        <button data-days="30">1ヶ月</button>
+        <button data-days="92" class="on">3ヶ月</button>
+        <button data-days="183">6ヶ月</button>
+        <button data-days="366">1年</button>
+        <button data-days="0">すべて</button>
+      </div>
+      <div class="rangerow">
+        <input type="date" id="cmpFrom"> 〜 <input type="date" id="cmpTo">
+      </div>
+    </div>
+    <div id="cmpBody">
+      <div class="stats" id="cmpStats"></div>
+      <div class="card">
+        <div class="charttitle">🏃 1回ごとの距離 (km)</div>
+        <svg id="chDist" viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="card">
+        <div class="charttitle" style="color:var(--pace)">⏱ 平均ペース (分/km) ※上ほど速い</div>
+        <svg id="chPace" viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="card">
+        <div class="charttitle" style="color:var(--hr)">♥ 平均心拍数 (bpm)</div>
+        <svg id="chHr" viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="card">
+        <h2>期間内のラン一覧</h2>
+        <div class="tablewrap">
+          <table id="cmpTbl">
+            <thead><tr><th>日付</th><th>距離<br>(km)</th><th>ペース<br>(分/km)</th><th>平均心拍<br>(bpm)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note">行をタップすると 1 分ごとの詳細グラフが見られます。</p>
+      </div>
+    </div>
+    <div class="empty" id="cmpEmpty" style="display:none">この期間にランニングの記録がありません。</div>
+  </section>
+
+  <!-- ============ 取り込み ============ -->
+  <section class="view" id="view-import">
+    <div class="card" id="standaloneTip" style="display:none;border-color:#ecc4be;background:#fbe9e6">
+      <h2 style="border-color:#ecc4be">📌 アプリとして使うのがおすすめ</h2>
+      <p style="margin:4px 0 6px;font-size:14px">いまは Safari のタブで開いています。このまま使うと、<b>しばらく開かないとiOSが記録を自動削除する</b>ことがあります。</p>
+      <p style="margin:0;font-size:14px">Safari下部の<b>共有ボタン</b>(□に↑)→<b>「ホーム画面に追加」</b>で、アプリとして使うとデータが消えにくくなります。<b>大事な記録は時々「バックアップを書き出す」で保存</b>しておくとさらに安心です。</p>
+    </div>
+    <details>
+      <summary>📖 使い方(ヘルスケアのデータを書き出す手順)</summary>
+      <ol>
+        <li>iPhone の<b>「ヘルスケア」アプリ</b>を開き、右上の自分のアイコンをタップ</li>
+        <li>一番下の<b>「すべてのヘルスケアデータを書き出す」</b>をタップ(数分かかります)</li>
+        <li>共有シートが出たら<b>「"ファイル" に保存」</b>を選択</li>
+        <li><b>「ファイル」アプリ</b>で保存した「書き出したデータ.zip」をタップ → 自動で解凍される</li>
+        <li>できた <b>apple_health_export</b> フォルダの中の <b>export.xml</b> を、下の「ファイルを選ぶ」から選択</li>
+      </ol>
+      <p class="note">※ データはこの端末の中だけで処理・保存され、どこにも送信されません。<br>
+      ※ 取り込んだ記録は端末に保存されるので、次回からは取り込み直さなくてもカレンダーや比較が見られます。新しいランを追加したいときに再度書き出して取り込んでください(重複は自動でスキップされます)。<br>
+      ※ 記録はこの端末のブラウザ内だけにあります。<b>Safariのデータ消去・アプリの削除・機種変更で消えます</b>。大切な記録は時々「バックアップを書き出す」で保存してください。</p>
+    </details>
+
+    <div class="card">
+      <h2>データを取り込む</h2>
+      <div class="row">
+        <select id="period">
+          <option value="30">直近 1 ヶ月</option>
+          <option value="92" selected>直近 3 ヶ月</option>
+          <option value="183">直近 6 ヶ月</option>
+          <option value="366">直近 1 年</option>
+          <option value="0">すべて</option>
+        </select>
+        <label class="filebtn primary">📂 ファイルを選ぶ (export.xml)
+          <input type="file" id="file" accept=".xml,text/xml,application/zip,.zip">
+        </label>
+        <button class="ghost" id="demo">デモデータで試す</button>
+      </div>
+      <div id="progressArea">
+        <div class="pbar"><div id="pfill"></div></div>
+        <div id="progressText"></div>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="card">
+      <h2>保存されているデータ</h2>
+      <p style="margin:4px 0 10px;font-size:14px" id="dbInfo"></p>
+      <div class="row">
+        <button id="backupBtn">⬆ バックアップを書き出す</button>
+        <label class="filebtn">⬇ バックアップを読み込む
+          <input type="file" id="restoreFile" accept=".json,application/json">
+        </label>
+        <button class="danger" id="wipeBtn">すべて削除</button>
+      </div>
+      <p class="note">記録はこの端末のブラウザ内に保存されます。機種変更前などにバックアップを書き出しておくと安心です。</p>
+    </div>
+  </section>
+
+  <!-- ============ 詳細 ============ -->
+  <section class="view" id="view-detail">
+    <button class="backbtn" id="backBtn">← 戻る</button>
+    <div class="card">
+      <h2 id="chartTitle"></h2>
+      <div class="stats" id="stats"></div>
+      <div class="legend">
+        <span><i style="background:var(--hr)"></i>心拍数 (bpm)</span>
+        <span><i style="background:var(--pace)"></i>ペース (分/km)</span>
+      </div>
+      <div class="chartbox">
+        <svg id="chart" viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="tip"></div>
+      </div>
+      <h2 style="margin-top:20px">1 分ごとの記録</h2>
+      <div class="tablewrap">
+        <table id="tbl">
+          <thead><tr><th>経過</th><th>心拍数<br>(bpm)</th><th>ペース<br>(分/km)</th><th>距離<br>(m)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button id="csvbtn" style="margin-top:12px">⬇ CSV で保存(共有)</button>
+    </div>
+  </section>
+
+  <footer>データは端末内でのみ処理・保存されます<br>© 2026 ランログ — 無断複製・再配布を禁じます</footer>
+</div>
+
+<!-- ============ タブバー ============ -->
+<nav class="tabbar">
+  <button data-view="calendar">📅<span>カレンダー</span></button>
+  <button data-view="compare">📈<span>比較</span></button>
+  <button data-view="import">📥<span>取り込み</span></button>
+</nav>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+// HTML特殊文字をエスケープ(innerHTMLに文字列を入れる際の安全化)
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ================================================================
+   保存 (localStorage)
+   run = { s, e, type, km, ah, mh, bins:[[心拍, m], ...] }  key = String(s)
+================================================================ */
+const DB_KEY = 'runlog.v1';
+let db = {runs: {}};
+try{
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw) db = JSON.parse(raw);
+  if(!db.runs) db.runs = {};
+}catch(e){ db = {runs: {}}; }
+
+function saveDb(){
+  try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; }
+  catch(e){
+    const quota = e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message || ''));
+    $('err').textContent = quota
+      ? '保存できませんでした。端末の保存容量がいっぱいの可能性があります。不要な記録を減らすか、バックアップを取ってから「すべて削除」をお試しください。'
+      : '保存できませんでした。プライベートブラウズ中だと記録が保存されないことがあります。通常のタブで開くか、ホーム画面に追加して使ってください。';
+    return false;
+  }
+}
+function allRuns(){ return Object.values(db.runs).sort((a,b)=>b.s-a.s); }
+function isRunType(t){ return t.indexOf('Running') >= 0; }
+
+/* ================================================================
+   共通ユーティリティ
+================================================================ */
+const RE_DATE = /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})/;
+function parseHkDate(s){
+  const m = RE_DATE.exec(s);
+  if(!m) return null;
+  const off = (m[7]==='-'?-1:1)*((+m[8])*60+(+m[9]));
+  return Date.UTC(+m[1], m[2]-1, +m[3], +m[4], +m[5], +m[6]) - off*60000;
+}
+const WDAYS = ['日','月','火','水','木','金','土'];
+function fmtDate(ms){
+  const d = new Date(ms);
+  return `${d.getMonth()+1}/${d.getDate()} (${WDAYS[d.getDay()]}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtMD(ms){
+  const d = new Date(ms);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function fmtDur(min){
+  const m = Math.floor(min), s = Math.round((min-m)*60);
+  return `${m}分${s ? s+'秒' : ''}`;
+}
+function fmtPace(p){
+  if(p == null || !isFinite(p)) return '—';
+  let m = Math.floor(p), s = Math.round((p-m)*60);
+  if(s === 60){ m++; s = 0; }
+  return `${m}'${String(s).padStart(2,'0')}"`;
+}
+function dayKey(ms){
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+const TYPE_JA = {
+  Running:'ランニング', Walking:'ウォーキング', Hiking:'ハイキング',
+  Cycling:'サイクリング', Swimming:'水泳', Yoga:'ヨガ', CoreTraining:'体幹',
+  FunctionalStrengthTraining:'筋トレ', TraditionalStrengthTraining:'筋トレ',
+  Elliptical:'エリプティカル', StairClimbing:'階段', HighIntensityIntervalTraining:'HIIT',
+  Other:'その他',
+};
+// 種目名は英字のみ許可。それ以外(HTML混入など)は 'Other' に正規化
+function cleanType(t){
+  const s = String(t == null ? '' : t);
+  return /^[A-Za-z]+$/.test(s.replace('HKWorkoutActivityType','')) ? s : 'Other';
+}
+function typeName(t){
+  const short = cleanType(t).replace('HKWorkoutActivityType','');
+  return TYPE_JA[short] || short;
+}
+// 保存形式の1件を検証・正規化(不正なら null)。復元時の壊れデータ/混入対策
+function sanitizeRun(v){
+  if(!v || typeof v !== 'object') return null;
+  const s = +v.s, e = +v.e;
+  if(!isFinite(s) || !isFinite(e) || e <= s) return null;
+  if(!Array.isArray(v.bins)) return null;
+  const num = (x, d) => isFinite(+x) ? +x : d;
+  const bins = v.bins.map(b => {
+    if(!Array.isArray(b)) return [null, 0];
+    return [b[0] == null ? null : Math.round(num(b[0], 0)), Math.max(0, Math.round(num(b[1], 0)))];
+  });
+  return {
+    s, e, type: cleanType(v.type),
+    km: Math.max(0, num(v.km, 0)),
+    ah: v.ah == null ? null : Math.round(num(v.ah, 0)),
+    mh: v.mh == null ? null : Math.round(num(v.mh, 0)),
+    bins,
+  };
+}
+function runDurMin(r){ return (r.e - r.s)/60000; }
+function runPace(r){ return r.km > 0.05 ? runDurMin(r)/r.km : null; }
+/* 保存形式 → 1分ビン */
+function runBins(r){
+  const total = r.e - r.s;
+  return r.bins.map((b, i) => {
+    const ms = Math.min(60000, total - i*60000);
+    const km = b[1]/1000;
+    let pace = b[1] > 10 ? (ms/60000)/km : null;
+    if(pace !== null && (pace < 1.5 || pace > 20)) pace = null;
+    return {min: i+1, hr: b[0], km, pace, ms};
+  });
+}
+
+/* ================================================================
+   ビュー切替
+================================================================ */
+let detailBack = 'calendar';
+function showView(name){
+  document.querySelectorAll('section.view').forEach(s => s.classList.toggle('active', s.id === 'view-'+name));
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  if(name === 'calendar') renderCalendar();
+  if(name === 'compare') renderCompare();
+  if(name === 'import') renderDbInfo();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.tabbar button').forEach(b => {
+  b.addEventListener('click', () => showView(b.dataset.view));
+});
+
+/* ================================================================
+   取り込み (export.xml ストリーミングパース)
+================================================================ */
+const RE_START_A = /startDate="([^"]*)"/;
+const RE_END_A   = /endDate="([^"]*)"/;
+const RE_VALUE_A = /value="([^"]*)"/;
+const RE_UNIT_A  = /unit="([^"]*)"/;
+const RE_SRC_A   = /sourceName="([^"]*)"/;
+const RE_WTYPE_A = /workoutActivityType="([^"]*)"/;
+const RE_SUM_A   = /sum="([^"]*)"/;
+const RE_TDIST_A = /totalDistance="([^"]*)"/;
+
+const raw = {hr: [], dist: [], workouts: []};
+const srcIds = new Map();
+function srcId(name){
+  if(!srcIds.has(name)) srcIds.set(name, srcIds.size);
+  return srcIds.get(name);
+}
+let curWorkout = null;
+
+function handleTag(t, sinceMs){
+  const lt = t.indexOf('<');
+  if(lt < 0) return;
+  if(lt > 0) t = t.slice(lt);
+
+  if(t.startsWith('<Record')){
+    let kind;
+    if(t.indexOf('"HKQuantityTypeIdentifierHeartRate"') > 0) kind = 'hr';
+    else if(t.indexOf('"HKQuantityTypeIdentifierDistanceWalkingRunning"') > 0) kind = 'dist';
+    else return;
+    const sd = RE_START_A.exec(t); if(!sd) return;
+    const s = parseHkDate(sd[1]);
+    if(s === null || s < sinceMs) return;
+    const vm = RE_VALUE_A.exec(t); if(!vm) return;
+    const v = parseFloat(vm[1]); if(!isFinite(v)) return;
+    if(kind === 'hr'){
+      raw.hr.push({t:s, v});
+    }else{
+      const ed = RE_END_A.exec(t);
+      const e = ed ? parseHkDate(ed[1]) : s;
+      const um = RE_UNIT_A.exec(t);
+      let km = v;
+      if(um && um[1] === 'm') km = v/1000;
+      else if(um && um[1] === 'mi') km = v*1.60934;
+      const sm = RE_SRC_A.exec(t);
+      raw.dist.push({s, e:(e===null?s:e), v:km, src: srcId(sm?sm[1]:'?')});
+    }
+  }
+  else if(t.startsWith('<Workout ')){
+    if(curWorkout) finishWorkout();   // 直前のWorkoutが未確定なら先に確定(取りこぼし防止)
+    const sd = RE_START_A.exec(t), ed = RE_END_A.exec(t), ty = RE_WTYPE_A.exec(t);
+    if(!sd || !ed || !ty) return;
+    const s = parseHkDate(sd[1]), e = parseHkDate(ed[1]);
+    if(s === null || e === null || s < sinceMs){ curWorkout = null; return; }
+    curWorkout = {type: ty[1], start: s, end: e, km: null};
+    const td = RE_TDIST_A.exec(t);
+    if(td) curWorkout.km = parseFloat(td[1]);
+    // 自己終了タグ <Workout .../> は '>' 分割で末尾が '/' になる。'/>'/'/' 両方を判定
+    if(t.endsWith('/>') || t.endsWith('/')) finishWorkout();
+  }
+  else if(t.startsWith('<WorkoutStatistics') && curWorkout){
+    if(t.indexOf('"HKQuantityTypeIdentifierDistanceWalkingRunning"') > 0){
+      const sm = RE_SUM_A.exec(t);
+      if(sm) curWorkout.km = parseFloat(sm[1]);
+    }
+  }
+  else if(t.startsWith('</Workout')){
+    finishWorkout();
+  }
+}
+function finishWorkout(){
+  if(!curWorkout) return;
+  const w = curWorkout; curWorkout = null;
+  if((w.end - w.start)/60000 < 1) return;
+  raw.workouts.push(w);
+}
+
+async function parseFile(file, sinceMs){
+  raw.hr = []; raw.dist = []; raw.workouts = []; curWorkout = null;
+  const reader = file.stream().getReader();
+  const decoder = new TextDecoder();
+  let buf = '', bytes = 0, chunkCount = 0;
+  for(;;){
+    const {done, value} = await reader.read();
+    if(done) break;
+    bytes += value.byteLength;
+    buf += decoder.decode(value, {stream:true});
+    const parts = buf.split('>');
+    buf = parts.pop();
+    for(let i = 0; i < parts.length; i++) handleTag(parts[i], sinceMs);
+    if((++chunkCount & 3) === 0){
+      setProgress(bytes, file.size);
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  buf += decoder.decode();
+  if(buf) handleTag(buf, sinceMs);
+  finishWorkout();
+  setProgress(file.size, file.size);
+  raw.hr.sort((a,b)=>a.t-b.t);
+  raw.dist.sort((a,b)=>a.s-b.s);
+}
+
+function setProgress(done, total){
+  $('progressArea').style.display = 'block';
+  const pct = total ? Math.round(done/total*100) : 0;
+  $('pfill').style.width = pct + '%';
+  $('progressText').textContent =
+    `読み込み中… ${(done/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB (${pct}%)`;
+}
+
+/* 1分ビン集計(生データ → ビン) */
+function aggregate(w){
+  const t0 = w.start, t1 = w.end;
+  const n = Math.ceil((t1 - t0)/60000);
+  const bins = [];
+  for(let i = 0; i < n; i++) bins.push({hrSum:0, hrN:0, km:0});
+  for(const h of raw.hr){
+    if(h.t < t0) continue;
+    if(h.t >= t1) break;
+    const b = bins[Math.floor((h.t - t0)/60000)];
+    b.hrSum += h.v; b.hrN++;
+  }
+  // Watch と iPhone の二重計上を防ぐ: 期間内合計が最大のソースのみ採用
+  const bySrc = new Map();
+  const inRange = [];
+  for(const d of raw.dist){
+    if(d.e <= t0) continue;
+    if(d.s >= t1) break;
+    inRange.push(d);
+    bySrc.set(d.src, (bySrc.get(d.src)||0) + d.v);
+  }
+  let bestSrc = null, bestKm = -1;
+  for(const [src, km] of bySrc){ if(km > bestKm){ bestKm = km; bestSrc = src; } }
+  for(const d of inRange){
+    if(d.src !== bestSrc) continue;
+    const s = Math.max(d.s, t0), e = Math.min(d.e, t1);
+    if(e <= s){
+      const i = Math.floor((s - t0)/60000);
+      if(bins[i]) bins[i].km += d.v;
+      continue;
+    }
+    const dur = d.e - d.s || 1;
+    const i0 = Math.floor((s - t0)/60000), i1 = Math.floor((e - 1 - t0)/60000);
+    for(let i = i0; i <= i1 && i < n; i++){
+      const bs = t0 + i*60000, be = bs + 60000;
+      const ov = Math.min(e, be) - Math.max(s, bs);
+      if(ov > 0) bins[i].km += d.v * (ov/dur);
+    }
+  }
+  return bins.map(b => ({hr: b.hrN ? b.hrSum/b.hrN : null, km: b.km}));
+}
+
+/* 生ワークアウト → 保存形式 */
+function toStored(w){
+  const bins = aggregate(w);
+  let sum = 0, n = 0, mx = null;
+  for(const h of raw.hr){
+    if(h.t >= w.start && h.t < w.end){
+      sum += h.v; n++;
+      if(mx === null || h.v > mx) mx = h.v;
+    }
+  }
+  const binKm = bins.reduce((a,b)=>a+b.km, 0);
+  // 総距離はWatch公称値を優先。1分内訳(bins)はその合計が総距離に一致するよう按分し直す
+  // → カレンダー/サマリーの距離と、1分テーブル合計・1分ペースが食い違わないようにする
+  const km = w.km != null && w.km > 0 ? w.km : binKm;
+  const scale = binKm > 0.01 ? km/binKm : 1;
+  return {
+    s: w.start, e: w.end, type: cleanType(w.type),
+    km: +km.toFixed(3),
+    ah: n ? Math.round(sum/n) : null,
+    mh: mx !== null ? Math.round(mx) : null,
+    bins: bins.map(b => [b.hr != null ? Math.round(b.hr) : null, Math.round(b.km*scale*1000)]),
+  };
+}
+
+function importWorkouts(){
+  let added = 0, skipped = 0;
+  for(const w of raw.workouts){
+    // キーは開始時刻＋種目。同一時刻に別種目があっても取りこぼさない
+    const key = w.start + '_' + cleanType(w.type);
+    if(db.runs[key] || db.runs[String(w.start)]){ skipped++; continue; }  // 旧形式キーとも互換
+    db.runs[key] = toStored(w);
+    added++;
+  }
+  const saved = saveDb();
+  raw.hr = []; raw.dist = []; raw.workouts = [];   // メモリ解放
+  return {added, skipped, saved};
+}
+
+$('file').addEventListener('change', async ev => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  $('err').textContent = '';
+  if(/\.zip$/i.test(f.name)){
+    $('err').textContent = 'zip ファイルはそのまま読めません。\n「ファイル」アプリで zip をタップすると解凍されるので、中の apple_health_export フォルダにある export.xml を選んでください。';
+    ev.target.value = '';
+    return;
+  }
+  const days = +$('period').value;
+  const sinceMs = days ? Date.now() - days*86400000 : 0;
+  try{
+    await parseFile(f, sinceMs);
+    const found = raw.workouts.length;
+    const {added, skipped, saved} = importWorkouts();
+    if(saved){
+      $('progressText').textContent =
+        `取り込み完了 ✓  ワークアウト ${found} 件中、新規 ${added} 件を保存しました` +
+        (skipped ? `(${skipped} 件は保存済みのためスキップ)` : '');
+      renderDbInfo();
+      if(added > 0) showView('calendar');
+    }else{
+      // saveDb が err 欄に理由を表示済み
+      $('progressText').textContent = `読み込みは成功しましたが、端末への保存に失敗しました。`;
+    }
+  }catch(e){
+    $('err').textContent = '読み込みに失敗しました: ' + e.message;
+  }
+  ev.target.value = '';
+});
+
+/* ================================================================
+   データ管理
+================================================================ */
+function renderDbInfo(){
+  const runs = allRuns();
+  const nRun = runs.filter(r => isRunType(r.type)).length;
+  if(runs.length === 0){
+    $('dbInfo').textContent = '保存されている記録はありません。';
+    return;
+  }
+  const oldest = runs[runs.length-1], newest = runs[0];
+  let bk = '';
+  if(db.lastBackup){
+    const days = Math.floor((Date.now() - db.lastBackup)/86400000);
+    bk = days >= 14
+      ? `<br><span style="color:var(--red)">⚠ 前回のバックアップから ${days} 日。書き出しておくと安心です。</span>`
+      : `<br><span class="dim">前回のバックアップ: ${days === 0 ? '今日' : days + '日前'}</span>`;
+  }else{
+    bk = `<br><span style="color:var(--red)">⚠ まだ一度もバックアップしていません。「⬆ バックアップを書き出す」で保存しておくと、機種変更や故障でも復元できます。</span>`;
+  }
+  $('dbInfo').innerHTML =
+    `全 <b>${runs.length}</b> 件(うちランニング <b>${nRun}</b> 件)<br>` +
+    `<span class="dim">${fmtMD(oldest.s)} 〜 ${fmtMD(newest.s)} / 約 ${(JSON.stringify(db).length/1024).toFixed(0)} KB 使用</span>` + bk;
+}
+
+$('backupBtn').addEventListener('click', () => {
+  const d = new Date();
+  const name = `runlog-backup-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], {type:'application/json'}));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  db.lastBackup = Date.now();   // 最終バックアップ日時を記録
+  saveDb();
+  renderDbInfo();
+});
+
+$('restoreFile').addEventListener('change', async ev => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if(!data || typeof data.runs !== 'object' || data.runs === null) throw new Error('バックアップ形式ではありません');
+    let added = 0, bad = 0;
+    for(const [k, v] of Object.entries(data.runs)){
+      if(k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      const run = sanitizeRun(v);            // 検証・正規化。不正なら null
+      if(!run){ bad++; continue; }
+      if(!db.runs[k]){ db.runs[k] = run; added++; }
+    }
+    if(!saveDb()) throw new Error('端末への保存に失敗しました');
+    $('err').textContent = '';
+    $('progressArea').style.display = 'block';
+    $('pfill').style.width = '100%';
+    $('progressText').textContent = `バックアップから ${added} 件を復元しました ✓` +
+      (bad ? `(${bad} 件は形式が不正なためスキップ)` : '');
+    renderDbInfo();
+  }catch(e){
+    $('err').textContent = '復元に失敗しました: ' + e.message;
+  }
+  ev.target.value = '';
+});
+
+$('wipeBtn').addEventListener('click', () => {
+  if(!confirm('保存されているすべての記録を削除します。よろしいですか?')) return;
+  db = {runs: {}};
+  saveDb();
+  renderDbInfo();
+  $('progressArea').style.display = 'none';
+});
+
+/* ================================================================
+   カレンダー
+================================================================ */
+const today = new Date();
+let calY = today.getFullYear(), calM = today.getMonth();
+
+$('calPrev').addEventListener('click', () => { calM--; if(calM < 0){ calM = 11; calY--; } renderCalendar(); });
+$('calNext').addEventListener('click', () => { calM++; if(calM > 11){ calM = 0; calY++; } renderCalendar(); });
+
+function renderCalendar(){
+  $('calTitle').textContent = `${calY}年 ${calM+1}月`;
+  const runs = allRuns();
+  $('calEmpty').style.display = runs.length ? 'none' : 'block';
+
+  const byDay = new Map();
+  for(const r of runs){
+    const k = dayKey(r.s);
+    if(!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(r);
+  }
+
+  const first = new Date(calY, calM, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(calY, calM+1, 0).getDate();
+  const todayK = dayKey(Date.now());
+
+  let html = WDAYS.map((w,i) =>
+    `<div class="wd${i===0?' sun':i===6?' sat':''}">${w}</div>`).join('');
+
+  for(let i = 0; i < startOffset; i++) html += `<div class="day out"></div>`;
+  for(let d = 1; d <= daysInMonth; d++){
+    const k = `${calY}-${calM}-${d}`;
+    const dayRuns = byDay.get(k) || [];
+    const hasRun = dayRuns.some(r => isRunType(r.type));
+    const hasOther = dayRuns.length > 0 && !hasRun;
+    const runKm = dayRuns.filter(r => isRunType(r.type)).reduce((a,r)=>a+r.km, 0);
+    const cls = ['day'];
+    if(hasRun) cls.push('run');
+    else if(hasOther) cls.push('other');
+    if(k === todayK) cls.push('today');
+    html += `<div class="${cls.join(' ')}" data-key="${k}">
+      <span class="num">${d}</span>` +
+      (dayRuns.length ? `<span class="dot"></span>` : '') +
+      (hasRun && runKm > 0 ? `<span class="km">${runKm.toFixed(1)}</span>` : '') +
+      `</div>`;
+  }
+  $('calGrid').innerHTML = html;
+
+  $('calGrid').querySelectorAll('.day.run, .day.other').forEach(el => {
+    el.addEventListener('click', () => renderDayPanel(el.dataset.key, byDay.get(el.dataset.key) || []));
+  });
+
+  // 表示中の月のヒーローカード + 月ごとの棒グラフ
+  renderMonthHero(runs);
+  renderMonthlyBars(runs);
+
+  $('dayCard').style.display = 'none';
+}
+
+// 今月(表示中の月)のまとめを大きく表示
+function renderMonthHero(runs){
+  const monthRuns = runs.filter(r => {
+    const d = new Date(r.s);
+    return isRunType(r.type) && d.getFullYear() === calY && d.getMonth() === calM;
+  });
+  const mKm = monthRuns.reduce((a,r)=>a+r.km, 0);
+  const mMin = monthRuns.reduce((a,r)=>a+runDurMin(r), 0);
+  const mPace = mKm > 0.5 ? mMin/mKm : null;
+  const emoji = mKm >= 50 ? '🎉' : mKm >= 20 ? '🔥' : mKm > 0 ? '👟' : '🌱';
+  const big = mKm > 0
+    ? `${mKm.toFixed(1)}<small>km</small> <span class="emoji">${emoji}</span>`
+    : `0<small>km</small> <span class="emoji">🌱</span>`;
+  $('monthHero').innerHTML =
+    `<div class="hmonth">${calY}年 ${calM+1}月</div>` +
+    `<div class="hbig">${big}</div>` +
+    `<div class="hsub">${monthRuns.length ? `この月は ${monthRuns.length} 回 走りました` : 'まだ記録がありません'}</div>` +
+    `<div class="hchips">` +
+      `<div class="hchip"><div class="v">${monthRuns.length}</div><div class="l">ラン回数</div></div>` +
+      `<div class="hchip"><div class="v">${monthRuns.length ? fmtDur(mMin) : '—'}</div><div class="l">合計時間</div></div>` +
+      `<div class="hchip"><div class="v">${fmtPace(mPace)}</div><div class="l">平均ペース/km</div></div>` +
+    `</div>`;
+}
+
+// 月ごとの距離を棒グラフで表示(直近12ヶ月)。バーをタップでその月へ移動
+function renderMonthlyBars(runs){
+  const card = $('monthlyCard'), svg = $('chMonthly');
+  const runRuns = runs.filter(r => isRunType(r.type));
+  if(runRuns.length === 0){ card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  // 月ごとに距離を合計
+  const byMonth = new Map();   // "Y-M" -> km
+  for(const r of runRuns){
+    const d = new Date(r.s);
+    const key = d.getFullYear() + '-' + d.getMonth();
+    byMonth.set(key, (byMonth.get(key) || 0) + r.km);
+  }
+  // 直近12ヶ月(今日の月から遡る)を並べる
+  const now = new Date();
+  const months = [];
+  for(let i = 11; i >= 0; i--){
+    let y = now.getFullYear(), m = now.getMonth() - i;
+    while(m < 0){ m += 12; y--; }
+    months.push({y, m, km: byMonth.get(y + '-' + m) || 0});
+  }
+
+  const W = 800, H = 230, M = {l:44, r:14, t:16, b:30};
+  const PW = W-M.l-M.r, PH = H-M.t-M.b;
+  const maxKm = Math.max(10, ...months.map(x=>x.km));
+  const bw = PW/months.length;
+  const y = v => M.t + PH - (v/maxKm)*PH;
+
+  let g = '';
+  // 横グリッド + 目盛り
+  for(let i = 0; i <= 3; i++){
+    const v = maxKm*i/3, yy = y(v);
+    g += `<line x1="${M.l}" y1="${yy}" x2="${W-M.r}" y2="${yy}" stroke="#e0efe9"/>`;
+    g += `<text x="${M.l-6}" y="${yy+4}" text-anchor="end" font-size="12" fill="#8aa39b">${Math.round(v)}</text>`;
+  }
+  // 棒
+  months.forEach((mo, i) => {
+    const cx = M.l + bw*i + bw/2;
+    const bh = Math.max(0, y(0) - y(mo.km));
+    const isCur = mo.y === calY && mo.m === calM;
+    const fill = isCur ? '#ff7a70' : '#9fd7c9';
+    const w = Math.min(26, bw*0.6);
+    if(mo.km > 0){
+      g += `<rect x="${(cx-w/2).toFixed(1)}" y="${y(mo.km).toFixed(1)}" width="${w.toFixed(1)}" height="${bh.toFixed(1)}" rx="5" fill="${fill}"><title>${mo.y}年${mo.m+1}月: ${mo.km.toFixed(1)} km</title></rect>`;
+      if(bw > 36) g += `<text x="${cx}" y="${(y(mo.km)-5).toFixed(1)}" text-anchor="middle" font-size="11" fill="${isCur?'#ef5d50':'#5fa392'}" font-weight="700">${mo.km.toFixed(0)}</text>`;
+    }
+    // 透明のタップ領域(0kmの月にも移動できるよう全幅)
+    g += `<rect class="mbar" data-y="${mo.y}" data-m="${mo.m}" x="${(M.l+bw*i).toFixed(1)}" y="${M.t}" width="${bw.toFixed(1)}" height="${PH}" fill="transparent" style="cursor:pointer"></rect>`;
+    const lblCol = isCur ? '#ef5d50' : '#8aa39b';
+    g += `<text x="${cx}" y="${H-10}" text-anchor="middle" font-size="11" fill="${lblCol}" font-weight="${isCur?'700':'400'}">${mo.m+1}月</text>`;
+  });
+  svg.innerHTML = g;
+  svg.querySelectorAll('.mbar').forEach(el => {
+    el.addEventListener('click', () => { calY = +el.dataset.y; calM = +el.dataset.m; renderCalendar(); });
+  });
+}
+
+function renderDayPanel(key, dayRuns){
+  if(dayRuns.length === 0) return;
+  const [y, m, d] = key.split('-').map(Number);
+  $('dayTitle').textContent = `${y}年${m+1}月${d}日の記録`;
+  const box = $('dayList');
+  box.innerHTML = '';
+  for(const r of dayRuns.sort((a,b)=>a.s-b.s)){
+    const el = document.createElement('div');
+    el.className = 'witem';
+    el.innerHTML = `<div><div class="wd">${esc(fmtDate(r.s))}</div>
+      <div class="wm">${fmtDur(runDurMin(r))} ・ ${(+r.km||0).toFixed(2)} km ・ ${fmtPace(runPace(r))}/km</div></div>
+      <div class="wtype">${esc(typeName(r.type))}</div>`;
+    el.addEventListener('click', () => showRun(r, 'calendar'));
+    box.appendChild(el);
+  }
+  $('dayCard').style.display = 'block';
+  $('dayCard').scrollIntoView({behavior:'smooth'});
+}
+
+/* ================================================================
+   比較
+================================================================ */
+function dateInputVal(ms){
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// 比較対象(ランニング)のうち、最も古い記録の開始時刻。無ければ null
+function oldestRunStart(){
+  const rs = allRuns().filter(r => isRunType(r.type));
+  return rs.length ? rs[rs.length-1].s : null;
+}
+function setRangeDays(days){
+  const to = Date.now();
+  const oldest = oldestRunStart();
+  let from;
+  if(days === 0){
+    // 「すべて」= 最初の記録から今日まで
+    from = oldest != null ? oldest : to - 92*86400000;
+  }else{
+    from = to - days*86400000;
+    // 記録が始まる前には遡らない。これで「すべて」が常に最も広い期間になる
+    if(oldest != null && oldest > from) from = oldest;
+  }
+  $('cmpFrom').value = dateInputVal(from);
+  $('cmpTo').value = dateInputVal(to);
+}
+$('cmpChips').querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    $('cmpChips').querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    setRangeDays(+b.dataset.days);
+    renderCompare();
+  });
+});
+$('cmpFrom').addEventListener('change', () => { clearChips(); renderCompare(); });
+$('cmpTo').addEventListener('change', () => { clearChips(); renderCompare(); });
+function clearChips(){ $('cmpChips').querySelectorAll('button').forEach(x => x.classList.remove('on')); }
+
+setRangeDays(92);
+
+function cmpRange(){
+  let f = $('cmpFrom').value, t = $('cmpTo').value;
+  if(f && t && f > t){ const x = f; f = t; t = x; }   // 開始>終了は入れ替え(YYYY-MM-DDは文字列比較で可)
+  const from = f ? new Date(f+'T00:00:00').getTime() : 0;
+  const to = t ? new Date(t+'T23:59:59').getTime() : Date.now();
+  return [from, to];
+}
+function runsInRange(from, to){
+  return allRuns().filter(r => isRunType(r.type) && r.s >= from && r.s <= to).sort((a,b)=>a.s-b.s);
+}
+function periodStats(runs){
+  if(runs.length === 0) return null;
+  const totKm = runs.reduce((a,r)=>a+r.km, 0);
+  const totMin = runs.reduce((a,r)=>a+runDurMin(r), 0);
+  const hrRuns = runs.filter(r => r.ah != null);
+  const avgHr = hrRuns.length
+    ? hrRuns.reduce((a,r)=>a+r.ah*runDurMin(r), 0)/hrRuns.reduce((a,r)=>a+runDurMin(r), 0)
+    : null;
+  return {
+    n: runs.length, totKm, totMin,
+    avgPace: totKm > 0.5 ? totMin/totKm : null,
+    avgHr,
+  };
+}
+
+function renderCompare(){
+  const [from, to] = cmpRange();
+  const runs = runsInRange(from, to);
+  $('cmpEmpty').style.display = runs.length ? 'none' : 'block';
+  $('cmpBody').style.display = runs.length ? 'block' : 'none';
+  if(runs.length === 0) return;
+
+  const st = periodStats(runs);
+  // 直前の同じ長さの期間と比較
+  const len = to - from;
+  const prev = periodStats(runsInRange(from - len - 86400000, from - 1));
+  function delta(cur, prv, fmt, inverse){
+    if(prv == null || cur == null) return '';
+    const d = cur - prv;
+    if(Math.abs(d) < 1e-9) return '<div class="d">前期間と同じ</div>';
+    const better = inverse ? d < 0 : d > 0;
+    const arrow = d > 0 ? '▲' : '▼';
+    const col = better ? '#2e7d32' : '#ff6b6b';
+    return `<div class="d" style="color:${col}">${arrow} ${fmt(Math.abs(d))} (前期間比)</div>`;
+  }
+  $('cmpStats').innerHTML = [
+    {l:'ラン回数', v: st.n + ' 回', d: delta(st.n, prev?.n, x=>x+'回')},
+    {l:'総距離', v: st.totKm.toFixed(1) + ' km', d: delta(st.totKm, prev?.totKm, x=>x.toFixed(1)+'km')},
+    {l:'平均ペース', v: fmtPace(st.avgPace) + '/km', d: delta(st.avgPace, prev?.avgPace, x=>fmtPace(x), true)},
+    {l:'平均心拍', v: st.avgHr ? Math.round(st.avgHr)+' bpm' : '—', d: delta(st.avgHr, prev?.avgHr, x=>Math.round(x)+'bpm', true)},
+  ].map(s => `<div class="stat"><div class="v">${s.v}</div><div class="l">${s.l}</div>${s.d||''}</div>`).join('');
+
+  $('chDist').innerHTML = miniChart(runs.map(r => ({x:r.s, y:r.km, label:`${fmtMD(r.s)}: ${r.km.toFixed(2)} km`})),
+    {from, to, color:'#1fae93', bar:true, yFmt:v=>v.toFixed(1)});
+  $('chPace').innerHTML = miniChart(runs.filter(r=>runPace(r)!=null).map(r => ({x:r.s, y:runPace(r), label:`${fmtMD(r.s)}: ${fmtPace(runPace(r))}/km`})),
+    {from, to, color:'#2f9fd0', invert:true, yFmt:v=>fmtPace(v)});
+  $('chHr').innerHTML = miniChart(runs.filter(r=>r.ah!=null).map(r => ({x:r.s, y:r.ah, label:`${fmtMD(r.s)}: ${r.ah} bpm`})),
+    {from, to, color:'#ff6b6b', yFmt:v=>Math.round(v)});
+
+  const tb = $('cmpTbl').querySelector('tbody');
+  tb.innerHTML = '';
+  for(const r of [...runs].reverse()){
+    const tr = document.createElement('tr');
+    tr.className = 'click';
+    tr.innerHTML = `<td>${fmtDate(r.s)}</td><td>${r.km.toFixed(2)}</td>
+      <td>${fmtPace(runPace(r))}</td><td>${r.ah != null ? r.ah : '—'}</td>`;
+    tr.addEventListener('click', () => showRun(r, 'compare'));
+    tb.appendChild(tr);
+  }
+}
+
+/* 比較用ミニチャート */
+function miniChart(pts, {from, to, color, invert=false, bar=false, yFmt=v=>v}){
+  const W=800, H=240, M={l:58, r:16, t:12, b:30};
+  const PW = W-M.l-M.r, PH = H-M.t-M.b;
+  if(pts.length === 0) return `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8aa39b" font-size="14">データなし</text>`;
+  const span = Math.max(to - from, 1);
+  const x = p => M.l + ((p.x - from)/span)*PW;
+  let lo = Math.min(...pts.map(p=>p.y)), hi = Math.max(...pts.map(p=>p.y));
+  if(bar) lo = 0;
+  const pad = (hi - lo)*0.15 || 1;
+  if(!bar) lo -= pad;
+  hi += pad;
+  const y = v => invert
+    ? M.t + ((v - lo)/(hi - lo))*PH
+    : M.t + PH - ((v - lo)/(hi - lo))*PH;
+
+  let g = '';
+  for(let i = 0; i <= 4; i++){
+    const v = lo + (hi - lo)*i/4;
+    const yy = y(v);
+    g += `<line x1="${M.l}" y1="${yy}" x2="${W-M.r}" y2="${yy}" stroke="#e0efe9"/>`;
+    g += `<text x="${M.l-8}" y="${yy+4}" text-anchor="end" font-size="12" fill="#8aa39b">${yFmt(v)}</text>`;
+  }
+  for(let i = 0; i <= 3; i++){
+    const t = from + span*i/3;
+    g += `<text x="${M.l + PW*i/3}" y="${H-8}" text-anchor="middle" font-size="12" fill="#8aa39b">${fmtMD(t)}</text>`;
+  }
+  if(bar){
+    for(const p of pts){
+      const xx = x(p);
+      g += `<rect x="${(xx-7).toFixed(1)}" y="${y(p.y).toFixed(1)}" width="14" height="${(y(0)-y(p.y)).toFixed(1)}" rx="3" fill="${color}" opacity=".85"><title>${p.label}</title></rect>`;
+    }
+  }else{
+    const sorted = [...pts].sort((a,b)=>a.x-b.x);
+    let d = '';
+    sorted.forEach((p,i) => { d += (i?'L':'M') + x(p).toFixed(1) + ' ' + y(p.y).toFixed(1); });
+    g += `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    for(const p of sorted){
+      g += `<circle cx="${x(p).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="4.5" fill="${color}"><title>${p.label}</title></circle>`;
+    }
+  }
+  return g;
+}
+
+/* ================================================================
+   詳細(1分ごとのグラフ)
+================================================================ */
+$('backBtn').addEventListener('click', () => showView(detailBack));
+
+let currentRun = null;
+function showRun(r, backTo){
+  detailBack = backTo || 'calendar';
+  currentRun = r;
+  const bins = runBins(r);
+  showView('detail');
+  $('chartTitle').textContent = `${fmtDate(r.s)} の${typeName(r.type)}`;
+  renderStats(r, bins);
+  renderChart(bins);
+  renderTable(bins);
+}
+
+function renderStats(r, bins){
+  const items = [
+    {l:'距離', v: r.km > 0 ? r.km.toFixed(2)+' km' : '—'},
+    {l:'時間', v: fmtDur(runDurMin(r))},
+    {l:'平均ペース', v: fmtPace(runPace(r))+'/km'},
+    {l:'平均心拍', v: r.ah != null ? r.ah+' bpm' : '—'},
+    {l:'最大心拍', v: r.mh != null ? r.mh+' bpm' : '—'},
+  ];
+  $('stats').innerHTML = items.map(s=>`<div class="stat"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
+}
+
+const CM = {l:52, r:60, t:14, b:34}, CW = 800, CH = 440;
+const CPW = CW-CM.l-CM.r, CPH = CH-CM.t-CM.b;
+
+function niceHrDomain(vals){
+  if(!vals.length) return [60, 180];
+  let lo = Math.floor((Math.min(...vals)-5)/10)*10;
+  let hi = Math.ceil((Math.max(...vals)+5)/10)*10;
+  if(hi - lo < 30) hi = lo + 30;
+  return [lo, hi];
+}
+function nicePaceDomain(vals){
+  if(!vals.length) return [4, 8];
+  let lo = Math.floor(Math.min(...vals)*2)/2 - 0.5;
+  let hi = Math.ceil(Math.max(...vals)*2)/2 + 0.5;
+  if(hi - lo < 2){ lo -= .5; hi += .5; }
+  return [Math.max(0,lo), hi];
+}
+function buildPath(pts){
+  let d = '', pen = false;
+  for(const p of pts){
+    if(p === null){ pen = false; continue; }
+    d += (pen ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+    pen = true;
+  }
+  return d;
+}
+
+function renderChart(bins){
+  const svg = $('chart');
+  const n = bins.length;
+  const x = i => CM.l + (n <= 1 ? CPW/2 : (i/(n-1))*CPW);
+  const hrVals = bins.map(b=>b.hr).filter(v=>v!=null);
+  const paceVals = bins.map(b=>b.pace).filter(v=>v!=null);
+  const [h0, h1] = niceHrDomain(hrVals);
+  const [p0, p1] = nicePaceDomain(paceVals);
+  const yHr   = v => CM.t + CPH - ((v - h0)/(h1 - h0))*CPH;
+  const yPace = v => CM.t + ((v - p0)/(p1 - p0))*CPH;
+
+  let g = '';
+  const hrStep = (h1 - h0) <= 60 ? 10 : 20;
+  for(let v = h0; v <= h1; v += hrStep){
+    const yy = yHr(v);
+    g += `<line x1="${CM.l}" y1="${yy}" x2="${CW-CM.r}" y2="${yy}" stroke="#e0efe9" stroke-width="1"/>`;
+    g += `<text x="${CM.l-8}" y="${yy+4}" text-anchor="end" font-size="12" fill="#ff6b6b">${v}</text>`;
+  }
+  for(let v = Math.ceil(p0*2)/2; v <= p1 + 1e-9; v += 0.5){
+    const yy = yPace(v);
+    g += `<text x="${CW-CM.r+8}" y="${yy+4}" font-size="12" fill="#2f9fd0">${fmtPace(v)}</text>`;
+  }
+  const xStep = n > 40 ? 10 : 5;
+  for(let i = 0; i < n; i += xStep){
+    g += `<text x="${x(i)}" y="${CH-CM.b+20}" text-anchor="middle" font-size="12" fill="#8aa39b">${i}</text>`;
+  }
+  g += `<text x="${CM.l+CPW/2}" y="${CH-2}" text-anchor="middle" font-size="12" fill="#8aa39b">経過時間(分)</text>`;
+  g += `<text x="${CM.l}" y="${CM.t-2}" font-size="11" fill="#ff6b6b">bpm</text>`;
+  g += `<text x="${CW-CM.r+8}" y="${CM.t-2}" font-size="11" fill="#2f9fd0">分/km</text>`;
+  g += `<line x1="${CM.l}" y1="${CM.t}" x2="${CM.l}" y2="${CH-CM.b}" stroke="#cfe3db"/>`;
+  g += `<line x1="${CW-CM.r}" y1="${CM.t}" x2="${CW-CM.r}" y2="${CH-CM.b}" stroke="#cfe3db"/>`;
+  g += `<line x1="${CM.l}" y1="${CH-CM.b}" x2="${CW-CM.r}" y2="${CH-CM.b}" stroke="#cfe3db"/>`;
+
+  const hrPts   = bins.map((b,i) => b.hr   != null ? [x(i), yHr(b.hr)]     : null);
+  const pacePts = bins.map((b,i) => b.pace != null ? [x(i), yPace(b.pace)] : null);
+  g += `<path d="${buildPath(pacePts)}" fill="none" stroke="#2f9fd0" stroke-width="2.5" stroke-linejoin="round"/>`;
+  g += `<path d="${buildPath(hrPts)}"   fill="none" stroke="#ff6b6b" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for(let i = 0; i < n; i++){
+    if(pacePts[i]) g += `<circle cx="${pacePts[i][0]}" cy="${pacePts[i][1]}" r="3" fill="#2f9fd0"/>`;
+    if(hrPts[i])   g += `<circle cx="${hrPts[i][0]}"   cy="${hrPts[i][1]}"   r="3" fill="#ff6b6b"/>`;
+  }
+  g += `<line id="cursor" x1="0" y1="${CM.t}" x2="0" y2="${CH-CM.b}" stroke="#1fae93" stroke-width="1" stroke-dasharray="4 3" visibility="hidden"/>`;
+  svg.innerHTML = g;
+  attachInteraction(svg, bins, x);
+}
+
+function attachInteraction(svg, bins, x){
+  const tip = $('tip');
+  function onMove(ev){
+    const rect = svg.getBoundingClientRect();
+    const scale = CW/rect.width;
+    const px = (ev.clientX - rect.left)*scale;
+    if(px < CM.l - 10 || px > CW - CM.r + 10){ onLeave(); return; }
+    let best = 0, bd = 1e9;
+    for(let i = 0; i < bins.length; i++){
+      const d = Math.abs(x(i) - px);
+      if(d < bd){ bd = d; best = i; }
+    }
+    const b = bins[best];
+    const c = svg.querySelector('#cursor');
+    c.setAttribute('x1', x(best)); c.setAttribute('x2', x(best));
+    c.setAttribute('visibility', 'visible');
+    tip.style.display = 'block';
+    tip.style.left = (x(best)/scale) + 'px';
+    tip.style.top = (CM.t/scale) + 'px';
+    tip.innerHTML = `<b>${b.min} 分</b><br>心拍 ${b.hr != null ? b.hr+' bpm' : '—'}<br>ペース ${fmtPace(b.pace)}/km`;
+  }
+  function onLeave(){
+    tip.style.display = 'none';
+    const c = svg.querySelector('#cursor');
+    if(c) c.setAttribute('visibility', 'hidden');
+  }
+  svg.onpointermove = onMove;
+  svg.onpointerdown = onMove;
+  svg.onpointerleave = onLeave;
+}
+
+function renderTable(bins){
+  const tb = $('tbl').querySelector('tbody');
+  tb.innerHTML = bins.map(b => `<tr>
+    <td>${b.min} 分</td>
+    <td>${b.hr != null ? b.hr : '<span class="dim">—</span>'}</td>
+    <td>${b.pace != null ? fmtPace(b.pace) : '<span class="dim">—</span>'}</td>
+    <td>${Math.round(b.km*1000)}</td>
+  </tr>`).join('');
+}
+
+$('csvbtn').addEventListener('click', () => {
+  if(!currentRun) return;
+  const bins = runBins(currentRun);
+  let csv = '﻿経過(分),心拍数(bpm),ペース(分/km),距離(m)\n';
+  for(const b of bins){
+    csv += `${b.min},${b.hr != null ? b.hr : ''},${b.pace != null ? b.pace.toFixed(2) : ''},${Math.round(b.km*1000)}\n`;
+  }
+  const d = new Date(currentRun.s);
+  const name = `run_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+
+/* ================================================================
+   デモデータ
+================================================================ */
+$('demo').addEventListener('click', () => {
+  const now = Date.now();
+  let added = 0;
+  let day = 100;
+  while(day > 0){
+    const d = new Date(now - day*86400000);
+    d.setHours(6 + Math.floor(Math.random()*13), Math.floor(Math.random()*60), 0, 0);
+    const start = d.getTime();
+    const durMin = 25 + Math.floor(Math.random()*35);
+    const end = start + durMin*60000;
+    const fitness = (100 - day)/100;                       // だんだん速くなる
+    const basePace = 6.4 - fitness*0.9 + (Math.random()-0.5)*0.4;
+    const baseHr = 158 - fitness*6 + (Math.random()-0.5)*6;
+    const bins = [];
+    let totKm = 0, maxHr = 0, sumHr = 0;
+    for(let i = 0; i < durMin; i++){
+      const prog = i/durMin;
+      const pace = basePace - prog*0.3 + Math.sin(i*0.7)*0.2 + (Math.random()-0.5)*0.15;
+      const m = Math.round(1000/pace);
+      const hr = Math.round(baseHr - 14 + prog*22 + Math.sin(i*0.5)*3 + (Math.random()-0.5)*3);
+      bins.push([hr, m]);
+      totKm += m/1000;
+      sumHr += hr;
+      if(hr > maxHr) maxHr = hr;
+    }
+    const key = String(start);
+    if(!db.runs[key]){
+      db.runs[key] = {
+        s: start, e: end, type: 'HKWorkoutActivityTypeRunning',
+        km: +totKm.toFixed(3),
+        ah: Math.round(sumHr/durMin), mh: maxHr,
+        bins,
+      };
+      added++;
+    }
+    day -= 2 + Math.floor(Math.random()*4);
+  }
+  // ウォーキングも 2 件
+  for(const dd of [15, 40]){
+    const start = now - dd*86400000 + 3600000;
+    const key = String(start);
+    if(!db.runs[key]){
+      db.runs[key] = {
+        s: start, e: start + 40*60000, type: 'HKWorkoutActivityTypeWalking',
+        km: 3.2, ah: 105, mh: 122,
+        bins: Array.from({length:40}, () => [100 + Math.floor(Math.random()*12), 80]),
+      };
+    }
+  }
+  saveDb();
+  $('err').textContent = '';
+  $('progressArea').style.display = 'block';
+  $('pfill').style.width = '100%';
+  $('progressText').textContent = `デモデータ ${added} 件を保存しました ✓(「すべて削除」で消せます)`;
+  renderDbInfo();
+  showView('calendar');
+});
+
+/* ================================================================
+   起動
+================================================================ */
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  try{ navigator.serviceWorker.register('sw.js'); }catch(e){}
+}
+// ストレージの永続化を要求(対応ブラウザでは自動削除されにくくなる)
+if(navigator.storage && navigator.storage.persist){ try{ navigator.storage.persist(); }catch(e){} }
+// Safariのタブで開いている(ホーム画面アプリでない)場合は、データ消失防止のバナーを表示
+const isStandalone = window.navigator.standalone === true ||
+  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+if(!isStandalone) $('standaloneTip').style.display = 'block';
+showView(allRuns().length ? 'calendar' : 'import');
+</script>
+</body>
+</html>
