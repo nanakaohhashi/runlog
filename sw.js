@@ -1,5 +1,5 @@
 // ランログ — オフライン対応 Service Worker
-const CACHE = 'runlog-v14';
+const CACHE = 'runlog-v15';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

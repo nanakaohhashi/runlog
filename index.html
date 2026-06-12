@@ -1009,7 +1009,10 @@ function renderMonthlyBars(runs){
     // 透明のタップ領域(0kmの月にも移動できるよう全幅)
     g += `<rect class="mbar" data-y="${mo.y}" data-m="${mo.m}" x="${(M.l+bw*i).toFixed(1)}" y="${M.t}" width="${bw.toFixed(1)}" height="${PH}" fill="transparent" style="cursor:pointer"></rect>`;
     const lblCol = isCur ? '#ef5d50' : '#8aa39b';
-    g += `<text x="${cx}" y="${H-10}" text-anchor="middle" font-size="11" fill="${lblCol}" font-weight="${isCur?'700':'400'}">${mo.m+1}月</text>`;
+    g += `<text x="${cx}" y="${H-13}" text-anchor="middle" font-size="11" fill="${lblCol}" font-weight="${isCur?'700':'400'}">${mo.m+1}月</text>`;
+    // 年をまたぐ時だけ年を併記(「6月」が2つ並んでも区別できるように)
+    const showYear = i === 0 || (months[i-1] && months[i-1].y !== mo.y);
+    if(showYear) g += `<text x="${cx}" y="${H-2}" text-anchor="middle" font-size="9" fill="#9fb3aa">${mo.y}</text>`;
   });
   svg.innerHTML = g;
   svg.querySelectorAll('.mbar').forEach(el => {
@@ -1325,6 +1328,7 @@ function renderChart(bins, svg, tip){
 
 function attachInteraction(svg, bins, x, tip, CW){
   function onMove(ev){
+    if(!bins.length){ onLeave(); return; }   // 空データ(壊れた記録)での例外を防ぐ
     const rect = svg.getBoundingClientRect();
     const scale = CW/rect.width;
     const px = (ev.clientX - rect.left)*scale;
@@ -1451,7 +1455,7 @@ $('demo').addEventListener('click', () => {
    フィードバック(Googleフォームを開く)
 ================================================================ */
 const FB_URL = 'https://forms.gle/je85NQUBpyjcNrTFA';
-function openFb(){ window.open(FB_URL, '_blank'); }
+function openFb(){ window.open(FB_URL, '_blank', 'noopener,noreferrer'); }
 $('fbLink').addEventListener('click', e => { e.preventDefault(); openFb(); });
 $('fbTab').addEventListener('click', openFb);
 $('shareBtn').addEventListener('click', shareMonth);
