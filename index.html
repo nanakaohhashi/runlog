@@ -135,7 +135,9 @@
     padding:18px 16px 16px; margin-bottom:14px; text-align:center;
     box-shadow:0 4px 16px rgba(31,174,147,.1);
   }
-  .hero .hmonth{font-size:13px;color:var(--mint);font-weight:800;letter-spacing:.08em;}
+  .hero .hmonth{font-size:13px;color:var(--mint);font-weight:800;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;gap:12px;}
+  .hero .heronav{border:none;background:var(--mint-bg);color:var(--mint);border-radius:999px;width:32px;height:32px;font-size:14px;font-weight:700;cursor:pointer;padding:0;line-height:1;}
+  .hero .heronav:active{background:#d3efe6;}
   .hero .hbig{font-size:42px;font-weight:800;color:var(--coral-deep);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px;}
   .hero .hbig small{font-size:17px;font-weight:700;margin-left:2px;}
   .hero .hbig .emoji{font-size:24px;margin-left:4px;}
@@ -166,6 +168,8 @@
   /* ===== グラフ ===== */
   .chartbox{position:relative;}
   svg{width:100%;height:auto;display:block;touch-action:pan-y;}
+  /* 横スクロールするグラフは横方向のスワイプ(スクロール)も許可する */
+  .chartscroll svg{touch-action:pan-x pan-y;}
   .legend{display:flex;gap:18px;justify-content:center;font-size:13px;margin:4px 0 8px;}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;}
@@ -173,7 +177,7 @@
     position:absolute;display:none;pointer-events:none;
     background:rgba(28,120,105,.96);color:#fff;font-size:12px;line-height:1.5;
     border-radius:10px;padding:6px 10px;white-space:nowrap;z-index:5;
-    transform:translate(-50%,-110%);
+    transform:translate(-50%,0);
   }
   /* カレンダー下部に表示する日別グラフのブロック */
   .runblock{margin-bottom:18px;}
@@ -826,8 +830,9 @@ $('wipeBtn').addEventListener('click', () => {
 const today = new Date();
 let calY = today.getFullYear(), calM = today.getMonth();
 
-$('calPrev').addEventListener('click', () => { calM--; if(calM < 0){ calM = 11; calY--; } renderCalendar(); });
-$('calNext').addEventListener('click', () => { calM++; if(calM > 11){ calM = 0; calY++; } renderCalendar(); });
+function shiftMonth(d){ calM += d; while(calM < 0){ calM += 12; calY--; } while(calM > 11){ calM -= 12; calY++; } renderCalendar(); }
+$('calPrev').addEventListener('click', () => shiftMonth(-1));
+$('calNext').addEventListener('click', () => shiftMonth(1));
 
 function renderCalendar(){
   $('calTitle').textContent = `${calY}年 ${calM+1}月`;
@@ -893,7 +898,7 @@ function renderMonthHero(runs){
     ? `${mKm.toFixed(1)}<small>km</small> <span class="emoji">${emoji}</span>`
     : `0<small>km</small> <span class="emoji">🌱</span>`;
   $('monthHero').innerHTML =
-    `<div class="hmonth">${calY}年 ${calM+1}月</div>` +
+    `<div class="hmonth"><button class="heronav" data-d="-1" aria-label="前の月">◀</button><span>${calY}年 ${calM+1}月</span><button class="heronav" data-d="1" aria-label="次の月">▶</button></div>` +
     `<div class="hbig">${big}</div>` +
     `<div class="hsub">${monthRuns.length ? `この月は ${monthRuns.length} 回 走りました` : 'まだ記録がありません'}</div>` +
     `<div class="hchips">` +
@@ -901,6 +906,7 @@ function renderMonthHero(runs){
       `<div class="hchip"><div class="v">${monthRuns.length ? fmtDur(mMin) : '—'}</div><div class="l">合計時間</div></div>` +
       `<div class="hchip"><div class="v">${fmtPace(mPace)}</div><div class="l">平均ペース/km</div></div>` +
     `</div>`;
+  $('monthHero').querySelectorAll('.heronav').forEach(b => b.addEventListener('click', () => shiftMonth(+b.dataset.d)));
   const sb = $('shareBtn');
   if(sb) sb.style.display = monthRuns.length ? 'inline-block' : 'none';
 }
