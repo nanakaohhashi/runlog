@@ -355,11 +355,6 @@
       <p class="note">記録はこの端末のブラウザ内に保存されます。機種変更前などにバックアップを書き出しておくと安心です。</p>
     </div>
 
-    <div class="card">
-      <h2>💬 ご意見・ご要望</h2>
-      <p class="note" style="margin:0 0 10px">気づいたこと・ほしい機能・不具合など、何でも送れます。ボタンを押すとアンケートフォームが開きます(1〜2分・匿名でOK)。</p>
-      <button id="fbBtn" class="primary">✏️ フィードバックを書く</button>
-    </div>
   </section>
 
   <!-- ============ 詳細 ============ -->
@@ -1318,6 +1313,14 @@ function renderChart(bins, svg, tip){
   svg.style.maxWidth = 'none';
   svg.innerHTML = g;
   attachInteraction(svg, bins, x, tip, CW);
+  // スクロール案内は、グラフが実際にはみ出す時だけ表示
+  const box = svg.closest('.chartbox');
+  const hint = box && box.querySelector('.scrollhint');
+  if(hint){
+    const scroll = svg.closest('.chartscroll');
+    const visible = scroll ? scroll.clientWidth : 0;
+    hint.style.display = (!visible || CW > visible + 4) ? 'block' : 'none';
+  }
 }
 
 function attachInteraction(svg, bins, x, tip, CW){
@@ -1449,7 +1452,6 @@ $('demo').addEventListener('click', () => {
 ================================================================ */
 const FB_URL = 'https://forms.gle/je85NQUBpyjcNrTFA';
 function openFb(){ window.open(FB_URL, '_blank'); }
-$('fbBtn').addEventListener('click', openFb);
 $('fbLink').addEventListener('click', e => { e.preventDefault(); openFb(); });
 $('fbTab').addEventListener('click', openFb);
 $('shareBtn').addEventListener('click', shareMonth);
