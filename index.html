@@ -169,12 +169,18 @@
   .legend{display:flex;gap:18px;justify-content:center;font-size:13px;margin:4px 0 8px;}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;}
-  #tip{
+  .tip{
     position:absolute;display:none;pointer-events:none;
     background:rgba(28,120,105,.96);color:#fff;font-size:12px;line-height:1.5;
     border-radius:10px;padding:6px 10px;white-space:nowrap;z-index:5;
     transform:translate(-50%,-110%);
   }
+  /* カレンダー下部に表示する日別グラフのブロック */
+  .runblock{margin-bottom:18px;}
+  .runblock + .runblock{border-top:1px dashed var(--border);padding-top:16px;}
+  .runblock .rhead{font-weight:700;color:var(--mint);font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .runblock .rhead .wtype{font-size:12px;background:var(--coral-bg);border-radius:999px;padding:3px 11px;color:var(--coral-deep);font-weight:700;white-space:nowrap;}
+  .runblock .rsub{font-weight:400;color:var(--muted);font-size:12px;}
 
   /* ===== 比較 ===== */
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
@@ -363,7 +369,7 @@
       </div>
       <div class="chartbox">
         <svg id="chart" viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div id="tip"></div>
+        <div id="tip" class="tip"></div>
       </div>
       <h2 style="margin-top:20px">1 分ごとの記録</h2>
       <div class="tablewrap">
@@ -1013,14 +1019,22 @@ function renderDayPanel(key, dayRuns){
   $('dayTitle').textContent = `${y}年${m+1}月${d}日の記録`;
   const box = $('dayList');
   box.innerHTML = '';
+  const legend = `<div class="legend"><span><i style="background:var(--hr)"></i>心拍数 (bpm)</span><span><i style="background:var(--pace)"></i>ペース (分/km)</span></div>`;
   for(const r of dayRuns.sort((a,b)=>a.s-b.s)){
-    const el = document.createElement('div');
-    el.className = 'witem';
-    el.innerHTML = `<div><div class="wd">${esc(fmtDate(r.s))}</div>
-      <div class="wm">${fmtDur(runDurMin(r))} ・ ${(+r.km||0).toFixed(2)} km ・ ${fmtPace(runPace(r))}/km</div></div>
-      <div class="wtype">${esc(typeName(r.type))}</div>`;
-    el.addEventListener('click', () => showRun(r, 'calendar'));
-    box.appendChild(el);
+    const block = document.createElement('div');
+    block.className = 'runblock';
+    const t = new Date(r.s);
+    const hhmm = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    block.innerHTML =
+      `<div class="rhead"><div>${hhmm} <span class="rsub">${fmtDur(runDurMin(r))} ・ ${(+r.km||0).toFixed(2)} km</span></div>` +
+        `<div class="wtype">${esc(typeName(r.type))}</div></div>` +
+      `<div class="stats">${statItems(r)}</div>` +
+      legend +
+      `<div class="chartbox"><svg class="ichart" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg"></svg><div class="tip"></div></div>` +
+      `<button class="ghost detailLink" style="margin-top:8px">1分ごとの表・CSVを見る →</button>`;
+    box.appendChild(block);
+    renderChart(runBins(r), block.querySelector('.ichart'), block.querySelector('.tip'));
+    block.querySelector('.detailLink').addEventListener('click', () => showRun(r, 'calendar'));
   }
   $('dayCard').style.display = 'block';
   $('dayCard').scrollIntoView({behavior:'smooth'});
@@ -1199,7 +1213,7 @@ function showRun(r, backTo){
   renderTable(bins);
 }
 
-function renderStats(r, bins){
+function statItems(r){
   const items = [
     {l:'距離', v: r.km > 0 ? r.km.toFixed(2)+' km' : '—'},
     {l:'時間', v: fmtDur(runDurMin(r))},
@@ -1207,8 +1221,9 @@ function renderStats(r, bins){
     {l:'平均心拍', v: r.ah != null ? r.ah+' bpm' : '—'},
     {l:'最大心拍', v: r.mh != null ? r.mh+' bpm' : '—'},
   ];
-  $('stats').innerHTML = items.map(s=>`<div class="stat"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
+  return items.map(s=>`<div class="stat"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
 }
+function renderStats(r){ $('stats').innerHTML = statItems(r); }
 
 const CM = {l:52, r:60, t:14, b:34}, CW = 800, CH = 440;
 const CPW = CW-CM.l-CM.r, CPH = CH-CM.t-CM.b;
@@ -1237,8 +1252,9 @@ function buildPath(pts){
   return d;
 }
 
-function renderChart(bins){
-  const svg = $('chart');
+function renderChart(bins, svg, tip){
+  svg = svg || $('chart');
+  tip = tip || $('tip');
   const n = bins.length;
   const x = i => CM.l + (n <= 1 ? CPW/2 : (i/(n-1))*CPW);
   const hrVals = bins.map(b=>b.hr).filter(v=>v!=null);
@@ -1278,13 +1294,12 @@ function renderChart(bins){
     if(pacePts[i]) g += `<circle cx="${pacePts[i][0]}" cy="${pacePts[i][1]}" r="3" fill="#2f9fd0"/>`;
     if(hrPts[i])   g += `<circle cx="${hrPts[i][0]}"   cy="${hrPts[i][1]}"   r="3" fill="#ff6b6b"/>`;
   }
-  g += `<line id="cursor" x1="0" y1="${CM.t}" x2="0" y2="${CH-CM.b}" stroke="#1fae93" stroke-width="1" stroke-dasharray="4 3" visibility="hidden"/>`;
+  g += `<line class="cursor" x1="0" y1="${CM.t}" x2="0" y2="${CH-CM.b}" stroke="#1fae93" stroke-width="1" stroke-dasharray="4 3" visibility="hidden"/>`;
   svg.innerHTML = g;
-  attachInteraction(svg, bins, x);
+  attachInteraction(svg, bins, x, tip);
 }
 
-function attachInteraction(svg, bins, x){
-  const tip = $('tip');
+function attachInteraction(svg, bins, x, tip){
   function onMove(ev){
     const rect = svg.getBoundingClientRect();
     const scale = CW/rect.width;
@@ -1296,7 +1311,7 @@ function attachInteraction(svg, bins, x){
       if(d < bd){ bd = d; best = i; }
     }
     const b = bins[best];
-    const c = svg.querySelector('#cursor');
+    const c = svg.querySelector('.cursor');
     c.setAttribute('x1', x(best)); c.setAttribute('x2', x(best));
     c.setAttribute('visibility', 'visible');
     tip.style.display = 'block';
@@ -1306,7 +1321,7 @@ function attachInteraction(svg, bins, x){
   }
   function onLeave(){
     tip.style.display = 'none';
-    const c = svg.querySelector('#cursor');
+    const c = svg.querySelector('.cursor');
     if(c) c.setAttribute('visibility', 'hidden');
   }
   svg.onpointermove = onMove;
