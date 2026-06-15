@@ -210,6 +210,9 @@
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
   .chips button{padding:7px 14px;font-size:13.5px;border-radius:999px;}
   .chips button.on{background:var(--mint);color:#fff;border-color:var(--mint);font-weight:700;}
+  /* ===== 設定 ===== */
+  .setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0;}
+  .setlabel{font-weight:700;color:var(--ink);font-size:14px;}
   .rangerow{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap;}
   .rangerow input[type=date]{font-size:13.5px;padding:7px 8px;}
   .charttitle{font-size:13.5px;font-weight:700;color:var(--mint);margin:2px 0 4px;}
@@ -381,6 +384,21 @@
 
   </section>
 
+  <!-- ============ 設定 ============ -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <h2>⚙️ 設定</h2>
+      <div class="setrow">
+        <div class="setlabel">週の開始曜日</div>
+        <div class="chips" id="weekStartChips">
+          <button data-ws="0">日曜</button>
+          <button data-ws="1">月曜</button>
+        </div>
+      </div>
+      <p class="note">カレンダーの先頭の曜日が変わります。設定はこの端末内だけに保存されます(アカウント不要・データ送信なし)。</p>
+    </div>
+  </section>
+
   <!-- ============ 詳細 ============ -->
   <section class="view" id="view-detail">
     <button class="backbtn" id="backBtn">← 戻る</button>
@@ -418,6 +436,7 @@
   <button data-view="calendar">📅<span>ホーム</span></button>
   <button data-view="compare">📈<span>比較</span></button>
   <button data-view="import">📥<span>取り込み</span></button>
+  <button data-view="settings">⚙️<span>設定</span></button>
   <button id="fbTab">💬<span>ご意見</span></button>
 </nav>
 
@@ -451,6 +470,16 @@ function saveDb(){
 }
 function allRuns(){ return Object.values(db.runs).sort((a,b)=>b.s-a.s); }
 function isRunType(t){ return t.indexOf('Running') >= 0; }
+
+// 端末内設定(アカウント不要)。weekStart: 0=日曜始まり / 1=月曜始まり
+const SETTINGS_KEY = 'runlog.settings.v1';
+let settings = {weekStart: 0};
+try{
+  const rawS = localStorage.getItem(SETTINGS_KEY);
+  if(rawS) settings = Object.assign(settings, JSON.parse(rawS) || {});
+}catch(e){}
+if(settings.weekStart !== 1) settings.weekStart = 0;   // 不正値は日曜始まりに正規化
+function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){} }
 
 // 種目をカレンダー上の色カテゴリ(run/walk/other)に振り分ける
 // ランアプリなのでランニング・ウォーキングを主役にし、それ以外はすべて other
@@ -553,10 +582,25 @@ function showView(name){
   if(name === 'calendar') renderCalendar();
   if(name === 'compare') renderCompare();
   if(name === 'import') renderDbInfo();
+  if(name === 'settings') renderSettings();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('.tabbar button[data-view]').forEach(b => {
   b.addEventListener('click', () => showView(b.dataset.view));
+});
+
+// 設定: 週の開始曜日チップ
+function renderSettings(){
+  $('weekStartChips').querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', +b.dataset.ws === settings.weekStart));
+}
+$('weekStartChips').querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    settings.weekStart = +b.dataset.ws;
+    saveSettings();
+    renderSettings();
+    renderCalendar();   // カレンダーの曜日並びに即反映
+  });
 });
 
 /* ================================================================
@@ -886,12 +930,14 @@ function renderCalendar(){
   }
 
   const first = new Date(calY, calM, 1);
-  const startOffset = first.getDay();
+  // 週の開始曜日設定に応じて曜日並びと先頭の空白を決める(0=日曜始まり / 1=月曜始まり)
+  const order = settings.weekStart === 1 ? [1,2,3,4,5,6,0] : [0,1,2,3,4,5,6];
+  const startOffset = (first.getDay() - settings.weekStart + 7) % 7;
   const daysInMonth = new Date(calY, calM+1, 0).getDate();
   const todayK = dayKey(Date.now());
 
-  let html = WDAYS.map((w,i) =>
-    `<div class="wd${i===0?' sun':i===6?' sat':''}">${w}</div>`).join('');
+  let html = order.map(di =>
+    `<div class="wd${di===0?' sun':di===6?' sat':''}">${WDAYS[di]}</div>`).join('');
 
   for(let i = 0; i < startOffset; i++) html += `<div class="day out"></div>`;
   for(let d = 1; d <= daysInMonth; d++){
