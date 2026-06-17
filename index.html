@@ -156,11 +156,11 @@
   @media (prefers-reduced-motion: reduce){ .hero .hbig .runner{animation:none;} }
   /* 走る人スプライト(12コマ・横一列・透過PNG)。速度はJSが距離連動で設定 */
   .hero .hbig .runner-sprite{
-    display:inline-block;vertical-align:-7px;width:34px;height:41px;margin-left:4px;
-    background:url('runner.png') 0 0 / 408px 41px no-repeat;
+    display:inline-block;vertical-align:-7px;width:38px;height:40px;margin-left:4px;
+    background:url('runner.png') 0 0 / 456px 40px no-repeat;
     animation-name:runsprite;animation-timing-function:steps(12);animation-iteration-count:infinite;
   }
-  @keyframes runsprite{ from{background-position:0 0;} to{background-position:-408px 0;} }
+  @keyframes runsprite{ from{background-position:0 0;} to{background-position:-456px 0;} }
   @media (prefers-reduced-motion: reduce){ .hero .hbig .runner-sprite{animation:none;} }
   .hero .hcmp{font-size:12px;color:var(--mint);background:var(--mint-bg);border:1px solid var(--border);border-radius:12px;padding:7px 10px;margin-top:10px;line-height:1.5;font-weight:700;}
   .hero .hcmp b{color:var(--coral-deep);font-weight:800;}
@@ -1025,7 +1025,7 @@ function renderMonthHero(runs){
   // 走るほどランナーが速く走る(爆速!)。animation-duration が小さいほど速い。0kmは🌱(静止)
   let runnerHtml;
   if(mKm > 0){
-    const dur = (1.1 - Math.min(1, mKm/80) * 0.98).toFixed(2);  // 約1.1s → 0.12s(80km以上で爆速)
+    const dur = (0.6 - Math.min(1, mKm/90) * 0.45).toFixed(2);  // 約0.6s(ゆっくり) → 0.15s(90km以上で爆速)
     runnerHtml = runnerReady
       ? `<span class="runner-sprite" style="animation-duration:${dur}s" role="img" aria-label="走る人"></span>`
       : `<span class="emoji runner" style="animation-duration:${dur}s">🏃</span>`;
