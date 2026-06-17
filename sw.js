@@ -1,6 +1,6 @@
 // ランログ — オフライン対応 Service Worker
-const CACHE = 'runlog-v18';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-512.png'];
+const CACHE = 'runlog-v19';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-512.png', './runner.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
