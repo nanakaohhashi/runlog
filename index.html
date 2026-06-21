@@ -156,11 +156,11 @@
   @media (prefers-reduced-motion: reduce){ .hero .hbig .runner{animation:none;} }
   /* 走る人スプライト(12コマ・横一列・透過PNG)。速度はJSが距離連動で設定 */
   .hero .hbig .runner-sprite{
-    display:inline-block;vertical-align:-7px;width:34px;height:40px;margin-left:4px;
-    background:url('runner.png') 0 0 / 816px 40px no-repeat;
+    display:inline-block;vertical-align:-7px;width:31px;height:40px;margin-left:4px;
+    background:url('runner.png') 0 0 / 744px 40px no-repeat;
     animation-name:runsprite;animation-timing-function:steps(24);animation-iteration-count:infinite;
   }
-  @keyframes runsprite{ from{background-position:0 0;} to{background-position:-816px 0;} }
+  @keyframes runsprite{ from{background-position:0 0;} to{background-position:-744px 0;} }
   @media (prefers-reduced-motion: reduce){ .hero .hbig .runner-sprite{animation:none;} }
   .hero .hcmp{font-size:12px;color:var(--mint);background:var(--mint-bg);border:1px solid var(--border);border-radius:12px;padding:7px 10px;margin-top:10px;line-height:1.5;font-weight:700;}
   .hero .hcmp b{color:var(--coral-deep);font-weight:800;}
